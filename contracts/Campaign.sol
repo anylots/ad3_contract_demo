@@ -48,14 +48,14 @@ contract Campaign is ERC20, Ownable{
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function pushPay(uint256 ratio) public returns (bool) {
+    function pushPay(uint8 ratio) public returns (bool) {
 
         require(_sellers.length > 0);
         require(ratio > 0);
         require(101 > ratio);
 
         uint256 balance = IERC20(usdt).balanceOf(address(this));
-        uint256 amount = balance * ratio;
+        uint256 amount = balance * ratio/ 100;
         uint256 serviceAmount = amount * serviceCharge;
 
 

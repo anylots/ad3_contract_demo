@@ -13,6 +13,8 @@ contract AD3Hub is Ownable {
 
     event Withdraw(address indexed advertiser);
 
+    event Pushpay(address indexed advertiser, uint8 indexed ratio);
+
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
 
@@ -78,6 +80,26 @@ contract AD3Hub is Ownable {
         return address(instance);
     }
 
+
+    /**
+     * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
+     * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
+     * @param advertiser The address of the underlying nft used as collateral
+     **/
+    function pushPay(address advertiser, uint8 ratio) external onlyOwner {
+        require(advertiser != address(0), "AD3Hub: advertiser is zero address");
+
+        require(
+            campaigns[advertiser] != address(0),
+            "AD3Hub: advertiser not create campaign"
+        );
+
+        //withdraw campaign amount to advertiser
+        Campaign(campaigns[advertiser]).pushPay(ratio);
+
+        emit Pushpay(advertiser, ratio);
+    }
+
     /**
      * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
@@ -91,12 +113,10 @@ contract AD3Hub is Ownable {
             "AD3Hub: advertiser not create campaign"
         );
 
-
         //withdraw campaign amount to advertiser
-        IERC20(campaigns[advertiser]).withdraw();
+        Campaign(campaigns[advertiser]).withdraw(advertiser);
 
         emit Withdraw(advertiser);
-
     }
 
     /**
