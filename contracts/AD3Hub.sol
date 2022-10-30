@@ -15,6 +15,7 @@ contract AD3Hub is Ownable {
 
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
+
     // Mapping from Advertiser address to campaign address
     mapping(address => address) internal campaigns;
 
@@ -54,7 +55,7 @@ contract AD3Hub is Ownable {
         assembly{
             let proxy :=mload(0x40)
             mstore(proxy, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
-            mstore(add(proxy, 0x14), campaignTemplate)
+            mstore(add(proxy, 0x14), 0xdAC17F958D2ee523a2206206994597C13D831ec7)
             mstore(add(proxy, 0x28),0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
             instance := create(0, proxy, 0x37)
         }
