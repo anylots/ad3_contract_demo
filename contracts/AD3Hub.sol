@@ -8,7 +8,7 @@ import "./Campaign.sol";
 
 contract AD3Hub is Ownable {
     /*//////////////////////////////////////////////////////////////
-                                 EVENTS
+                                EVENTS
     //////////////////////////////////////////////////////////////*/
 
     event Withdraw(address indexed advertiser);
@@ -17,18 +17,21 @@ contract AD3Hub is Ownable {
 
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
-
     // Mapping from Advertiser address to campaign address
     mapping(address => address) internal campaigns;
 
     /**
      * @dev Add nft->xnft address pair to nfts.
      * @param budget The address of the underlying nft used as collateral
-     * 
      */
+    /*
+    *   TODO:
+    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
+    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
+    */ 
     function createCampaign(address[] memory kols, uint256 budget) external returns (address){
         require(kols.length > 0,"kols is empty");
-
+        
         //create campaign
         Campaign xcampaign = new Campaign(address(this), kols, budget);
 
@@ -44,13 +47,16 @@ contract AD3Hub is Ownable {
         return address(xcampaign);
     }
 
-
     /**
      * @dev Add campaign address to campaign mapping.
      * @param budget The address of the underlying nft used as collateral
-     * 
      */
-    function createCampaignLowGas(address[] memory kols, uint256 budget) external returns (address instance){
+    /*
+    *   TODO:
+    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
+    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
+    */ 
+    function createCampaignLowGas(address[] memory kols, uint256 budget) external returns (address instance) {
         require(kols.length > 0,"kols is empty");
 
         //create campaign
@@ -58,7 +64,7 @@ contract AD3Hub is Ownable {
             let proxy :=mload(0x40)
             mstore(proxy, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
             mstore(add(proxy, 0x14), 0xdAC17F958D2ee523a2206206994597C13D831ec7)
-            mstore(add(proxy, 0x28),0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            mstore(add(proxy, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
             instance := create(0, proxy, 0x37)
         }
         
@@ -86,6 +92,11 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
+    /*
+    * TODO：
+    *    1）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
+    *    2）调整入参：根据实际业务调整，不同 KOL 的抽佣比例是否一致，如果不一致要 unit8 ratio 参数要修改成 mapping(address => uint8)
+    **/
     function pushPay(address advertiser, uint8 ratio) external onlyOwner {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
@@ -105,6 +116,11 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
+    /*
+    * TODO：
+    *   1）调整函数名，含义为终止广告活动，提前结算并且返回剩余资金到广告主
+    *   2）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
+    */
     function withdraw(address advertiser) external onlyOwner {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
@@ -127,5 +143,4 @@ contract AD3Hub is Ownable {
         require(advertiser != address(0), "NFTPool: nftAsset is zero address");
         return campaigns[advertiser];
     }
-
 }
