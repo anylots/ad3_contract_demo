@@ -21,6 +21,9 @@ contract AD3Hub is Ownable {
 
     // Mapping from Advertiser address to campaign address
     mapping(address => address) internal campaigns;
+
+    // Mapping from Advertiser address to historyCampaign address
+    mapping(address => address) internal historyCampaigns;
     
     struct kol{
         address[] users;
@@ -29,24 +32,29 @@ contract AD3Hub is Ownable {
 
     /**
      * @dev Add nft->xnft address pair to nfts.
-     * @param budget The address of the underlying nft used as collateral
+     * @param userBudget The address of the underlying nft used as collateral
      */
     /*
     *   TODO:
     *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
     *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
     */ 
-    function createCampaign(address[] memory kols, uint256 budget,kol memory a) external returns (address){
+    function createCampaign(address[] memory kols,
+        uint256[] memory productAmounts,
+        uint8[] memory ratios,
+        uint256 userBudget,
+        uint256 totalBudget
+        ) external returns (address){
         require(kols.length > 0,"kols is empty");
-        
+
         //create campaign
-        Campaign xcampaign = new Campaign(address(this), kols, budget);
+        Campaign xcampaign = new Campaign(kols, productAmounts, ratios, userBudget);
 
         //init amount
         IERC20(usdt_address).transferFrom(
             msg.sender,
             address(xcampaign),
-            budget
+            totalBudget
         );
 
         //register to mapping
@@ -113,7 +121,7 @@ contract AD3Hub is Ownable {
         );
 
         //withdraw campaign amount to advertiser
-        Campaign(campaigns[advertiser]).pushPay(kols);
+        // Campaign(campaigns[advertiser]).pushPay(kols);
 
         // emit Pushpay(advertiser, ratio);
     }
@@ -138,6 +146,10 @@ contract AD3Hub is Ownable {
 
         //withdraw campaign amount to advertiser
         Campaign(campaigns[advertiser]).withdraw(advertiser);
+
+        historyCampaigns[advertiser] = campaigns[advertiser];
+        delete campaigns[advertiser];
+
 
         emit Withdraw(advertiser);
     }

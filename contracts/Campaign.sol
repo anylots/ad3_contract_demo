@@ -21,42 +21,88 @@ import "./AD3lib.sol";
 **/
 contract Campaign is ERC20, Ownable {
 
-    address private _owner;
+    mapping(address => AD3lib.kol) _kolStorages;
 
-    mapping(address=>uint8) _kols;
+    mapping(address => bool) _kols;
 
-    uint256 public _fixedPayment;
+    uint8 _paymentStage = 0;
+
+    //single user's budget
+    uint256 public _userBudget;
 
     //serviceCharge percent value;
     uint256 _serviceCharge = 5;
+
+    address _ad3hub;
     
     address public usdt = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
+
+    modifier onlyAd3Hub() {
+        require(
+            msg.sender == _ad3hub,
+            "The caller of this function must be a nftPool"
+        );
+        _;
+    }
 
 
 
     /**
      * @dev Constructor.
-     * @param owner name of the token
      * @param kols symbol of the token, 3-4 chars is recommended
+     * @param productAmounts symbol of the token, 3-4 chars is recommended
      * @param ratios symbol of the token, 3-4 chars is recommended
-     * @param fixedPayment number of decimal places of one token unit, 18 is widely used
+     * @param userBudget number of decimal places of one token unit, 18 is widely used
      */
     constructor(
-        address owner,
         address[] memory kols,
+        uint256[] memory productAmounts,
         uint8[] memory ratios,
-        uint256 fixedPayment
+        uint256 userBudget
     ) payable ERC20("name", "symbol") {
-        _owner = owner;
+        require(kols.length > 0,"AD3: kols is empty");
+        require(kols.length == productAmounts.length,"AD3: kols' length error");
+        require(productAmounts.length ==ratios.length,"AD3: kols' length error");
+
+        _ad3hub = msg.sender;
 
         for(uint64 i=0; i<kols.length; i++){
+            address kolAddress = kols[i];
+            require(kolAddress != address(0), "AD3Hub: kolAddress is zero address");
             require(ratios[i] > 0,"AD3: kol commission <= 0");
             require(ratios[i] <= 100,"AD3: kol commission > 100");
-            _kols[kols[i]] = ratios[i];
+            
+            // _kols[kolAddress].kol_address = kolAddress;
+            _kolStorages[kolAddress].product_amount = productAmounts[i];
+            _kolStorages[kolAddress].ratio = ratios[i];
+
+            _kols[kolAddress] = true;
         }
-        require(fixedPayment >= 0,"AD3: kol fixedPayment < 0");
-        require(fixedPayment <= 100,"AD3: kol fixedPayment > 100");
-        _fixedPayment = fixedPayment;
+
+        require(userBudget > 0,"AD3: kol userBudget < 0");
+        _userBudget = userBudget;
+    }
+
+
+    /**
+     * @dev phaseOnePay.
+     */
+    function prepay(address[] memory kols) public onlyOwner returns (bool) {
+        require(_paymentStage < 2, "AD3: prepay already done");
+        require(kols.length > 0,"AD3: kols of pay is empty");
+        uint256 balance = IERC20(usdt).balanceOf(address(this));
+        require(balance > 0,"AD3: phaseTwoPay insufficient funds");
+
+        for(uint64 i=0; i<kols.length; i++){
+            address kol_address = kols[i];
+            require(_kols[kol_address] == true, "AD3Hub: kol_address does not exist");
+            //pay for kol
+            require(
+                IERC20(usdt).transfer(kol_address, _kolStorages[kol_address].product_amount / 2)
+            );
+        }
+        _paymentStage++;
+        return true;
     }
 
     /**
@@ -74,24 +120,26 @@ contract Campaign is ERC20, Ownable {
     *    3）增加逻辑：结算逻辑需要对各个 KOL 支付抽佣金额、各个用户支付激励金额
     *    4）增加逻辑：结算后资金有剩余，需要退回剩余金额给广告主
     **/
-    function phaseTwoPay(AD3lib.kol[] memory kols) public returns (bool) {
-        require(kols.length > 0);
+    function comletePay(AD3lib.kol[] memory kols) public onlyOwner returns (bool) {
+        require(kols.length > 0,"AD3: kols of pay is empty");
         uint256 balance = IERC20(usdt).balanceOf(address(this));
-        uint256 phaseTwoAmount = balance * (100 - _fixedPayment)/100;
-        uint256 pay_amount = phaseTwoAmount/kols.length;
+        require(balance > 0,"AD3: comletePay insufficient funds");
 
         for(uint64 i=0; i<kols.length; i++){
             address kol_address=kols[i].kol_address;
-            require(_kols[kol_address] > 0,"AD3: kol_address does not exist");
-            uint8 ratio = _kols[kol_address];
+            require(_kolStorages[kol_address].kol_address != address(0), "AD3Hub: kol_address does not exist");
+
+            uint8 ratio = _kolStorages[kol_address].ratio;
+            ////pay for kol
             require(
-                IERC20(usdt).transfer(kol_address, pay_amount * ratio/100)
+                IERC20(usdt).transfer(kol_address, _userBudget * ratio/100)
             );
             address[] memory users = kols[i].users;
-            uint256 userAmount = pay_amount*(100-ratio)/100/users.length;
+            uint256 userAmount = _userBudget * (100-ratio) / 100;
+            //pay for users
             for(uint64 index=0; index<users.length; index++){
                 require(
-                IERC20(usdt).transfer(users[index], userAmount)
+                    IERC20(usdt).transfer(users[index], userAmount)
                 );
             }
         }
@@ -118,4 +166,21 @@ contract Campaign is ERC20, Ownable {
 
         require(IERC20(usdt).transferFrom(address(this), advertiser, balance));
     }
+
+
+    /**
+     * @dev setServiceCharge.
+     *
+     * Requirements:
+     *
+     * - `recipient` cannot be the zero address.
+     * - the caller must have a balance of at least `amount`.
+     */
+    function setServiceCharge(uint8 value) public onlyOwner {
+        require(value > 0,"AD3: serviceCharge <= 0");
+        require(value <= 10,"AD3: serviceCharge > 10");
+        _serviceCharge = value;
+    }
+
+
 }
