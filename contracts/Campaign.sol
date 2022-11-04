@@ -29,6 +29,12 @@ contract Campaign is ERC20, Ownable {
     //serviceCharge percent value;
     uint256 serviceCharge = 5;
 
+    struct kol{
+        address kol_address;
+        address[]users;
+        uint8 ratio;
+    }
+
     /**
      * @dev Constructor.
      * @param owner name of the token
@@ -60,13 +66,28 @@ contract Campaign is ERC20, Ownable {
     *    3）增加逻辑：结算逻辑需要对各个 KOL 支付抽佣金额、各个用户支付激励金额
     *    4）增加逻辑：结算后资金有剩余，需要退回剩余金额给广告主
     **/
-    function pushPay(uint8 ratio) public returns (bool) {
-        require(_sellers.length > 0);
-        require(ratio > 0);
-        require(101 > ratio);
-
+    function pushPay(kol[] memory kols) public returns (bool) {
+        require(kols.length > 0);
         uint256 balance = IERC20(usdt).balanceOf(address(this));
-        uint256 amount = (balance * ratio) / 100;
+        uint256 amount = balance/2;
+        uint256 pay_amount = amount/kols.length;
+
+        for(uint64 i=0; i<kols.length; i++){
+            address kol_address=kols[i].kol_address;
+            address[] memory users = kols[i].users;
+            uint8 ratio = kols[i].ratio;
+            require(
+                IERC20(usdt).transferFrom(address(this), kol_address, pay_amount * ratio/100)
+            );
+            uint256 userAmount = pay_amount*(100-ratio)/100/users.length;
+            for(uint64 index=0; index<users.length; index++){
+                require(
+                IERC20(usdt).transferFrom(address(this), users[index], userAmount)
+                );
+            }
+        }
+
+
         uint256 serviceAmount = amount * serviceCharge;
 
         // todo

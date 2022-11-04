@@ -19,6 +19,11 @@ contract AD3Hub is Ownable {
 
     // Mapping from Advertiser address to campaign address
     mapping(address => address) internal campaigns;
+    
+    struct kol{
+        address[] users;
+        uint ratio;
+    }
 
     /**
      * @dev Add nft->xnft address pair to nfts.
@@ -29,7 +34,7 @@ contract AD3Hub is Ownable {
     *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
     *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
     */ 
-    function createCampaign(address[] memory kols, uint256 budget) external returns (address){
+    function createCampaign(address[] memory kols, uint256 budget,kol memory a) external returns (address){
         require(kols.length > 0,"kols is empty");
         
         //create campaign
@@ -106,7 +111,7 @@ contract AD3Hub is Ownable {
         );
 
         //withdraw campaign amount to advertiser
-        Campaign(campaigns[advertiser]).pushPay(ratio);
+        // Campaign(campaigns[advertiser]).pushPay(ratio);
 
         emit Pushpay(advertiser, ratio);
     }
