@@ -5,6 +5,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Campaign.sol";
+import "./AD3lib.sol";
+
 
 contract AD3Hub is Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -102,7 +104,7 @@ contract AD3Hub is Ownable {
     *    1）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
     *    2）调整入参：根据实际业务调整，不同 KOL 的抽佣比例是否一致，如果不一致要 unit8 ratio 参数要修改成 mapping(address => uint8)
     **/
-    function pushPay(address advertiser, uint8 ratio) external onlyOwner {
+    function pushPay(address advertiser, AD3lib.kol[] memory kols) external onlyOwner {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
         require(
@@ -111,9 +113,9 @@ contract AD3Hub is Ownable {
         );
 
         //withdraw campaign amount to advertiser
-        // Campaign(campaigns[advertiser]).pushPay(ratio);
+        Campaign(campaigns[advertiser]).pushPay(kols);
 
-        emit Pushpay(advertiser, ratio);
+        // emit Pushpay(advertiser, ratio);
     }
 
     /**
