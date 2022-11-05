@@ -20,21 +20,11 @@ import "./AD3lib.sol";
 *   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
 **/
 contract Campaign is ERC20, Ownable {
-
-    mapping(address => AD3lib.kol) _kolStorages;
-
-    mapping(address => bool) _kols;
-
-    uint8 _paymentStage = 0;
-
-    //single user's budget
+    address public _ad3hub;
+    uint256 public _totalBudget;
     uint256 public _userBudget;
-
-    //serviceCharge percent value;
-    uint256 _serviceCharge = 5;
-
-    address _ad3hub;
-    
+    uint256 public _serviceCharge = 5;
+    uint public storage _paymentStage = 0;
     address public usdt = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
 
     modifier onlyAd3Hub() {
@@ -45,60 +35,38 @@ contract Campaign is ERC20, Ownable {
         _;
     }
 
-
-
     /**
      * @dev Constructor.
-     * @param kols symbol of the token, 3-4 chars is recommended
-     * @param productAmounts symbol of the token, 3-4 chars is recommended
-     * @param ratios symbol of the token, 3-4 chars is recommended
      * @param userBudget number of decimal places of one token unit, 18 is widely used
+     * @param totalBuget 
      */
     constructor(
-        address[] memory kols,
-        uint256[] memory productAmounts,
-        uint8[] memory ratios,
-        uint256 userBudget
+        uint256 userBudget,
+        uint256 totalBudget,
     ) payable ERC20("name", "symbol") {
-        require(kols.length > 0,"AD3: kols is empty");
-        require(kols.length == productAmounts.length,"AD3: kols' length error");
-        require(productAmounts.length ==ratios.length,"AD3: kols' length error");
-
         _ad3hub = msg.sender;
-
-        for(uint64 i=0; i<kols.length; i++){
-            address kolAddress = kols[i];
-            require(kolAddress != address(0), "AD3Hub: kolAddress is zero address");
-            require(ratios[i] > 0,"AD3: kol commission <= 0");
-            require(ratios[i] <= 100,"AD3: kol commission > 100");
-            
-            // _kols[kolAddress].kol_address = kolAddress;
-            _kolStorages[kolAddress].product_amount = productAmounts[i];
-            _kolStorages[kolAddress].ratio = ratios[i];
-
-            _kols[kolAddress] = true;
-        }
-
-        require(userBudget > 0,"AD3: kol userBudget < 0");
         _userBudget = userBudget;
+        _totalBudget = totalBudget;
     }
 
-
-    /**
-     * @dev phaseOnePay.
-     */
-    function prepay(address[] memory kols) public onlyOwner returns (bool) {
-        require(_paymentStage < 2, "AD3: prepay already done");
-        require(kols.length > 0,"AD3: kols of pay is empty");
+    function balanceOf() view onlyAd3Hub returns (uint256) {
         uint256 balance = IERC20(usdt).balanceOf(address(this));
-        require(balance > 0,"AD3: phaseTwoPay insufficient funds");
+        return balance;
+    }
 
-        for(uint64 i=0; i<kols.length; i++){
-            address kol_address = kols[i];
-            require(_kols[kol_address] == true, "AD3Hub: kol_address does not exist");
+    function prepay(AD3lib.kol[] memory kols) public onlyAd3Hub returns (bool) {
+        require(_paymentStage == 0, "AD3: prepay already done");
+        require(kols.length > 0, "AD3: kols of pay is empty");
+
+        for (uint64 i = 0; i < kols.length; i++) {
+            address kol = kols[i];
+            require(kol._address, "AD3Hub: kol_address does not exist");
+
+            
+
             //pay for kol
             require(
-                IERC20(usdt).transfer(kol_address, _kolStorages[kol_address].product_amount / 2)
+                IERC20(usdt).transfer(kol_address, _kolStorages[kol_address].fixedFee / 2)
             );
         }
         _paymentStage++;
@@ -181,6 +149,4 @@ contract Campaign is ERC20, Ownable {
         require(value <= 10,"AD3: serviceCharge > 10");
         _serviceCharge = value;
     }
-
-
 }

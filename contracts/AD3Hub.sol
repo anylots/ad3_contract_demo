@@ -17,6 +17,8 @@ contract AD3Hub is Ownable {
 
     event Pushpay(address indexed advertiser, uint8 indexed ratio);
 
+    event Prepay(address indexed advertiser);
+
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     // Mapping from Advertiser address to campaign address
@@ -24,37 +26,27 @@ contract AD3Hub is Ownable {
 
     // Mapping from Advertiser address to historyCampaign address
     mapping(address => address) internal historyCampaigns;
-    
-    struct kol{
-        address[] users;
-        uint ratio;
-    }
 
     /**
-     * @dev Add nft->xnft address pair to nfts.
-     * @param userBudget The address of the underlying nft used as collateral
+     * 1）创建订单合约时需要确认 KOL 名单 - KOL 地址、KOL 固定制作费用、KOL 抽佣比例
+     * 2）创建订单合约时需要确认广告主 - 固定制作费用总预算 + 用户激励总预算 = 广告总预算
+     * 3）创建订单合约触发时机 - 广告主在签约页面上主动点击【创建广告】按钮触发，并签字转账
      */
-    /*
-    *   TODO:
-    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
-    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
-    */ 
-    function createCampaign(address[] memory kols,
-        uint256[] memory productAmounts,
-        uint8[] memory ratios,
+    function createCampaign(
         uint256 userBudget,
-        uint256 totalBudget
-        ) external returns (address){
-        require(kols.length > 0,"kols is empty");
+        uint256 totalBudget,
+    ) external returns (address) {
+        require(userBudget > 0, "userBudget > 0");
+        require(totalBudget > 0, "fixedBudget > 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, productAmounts, ratios, userBudget);
+        Campaign xcampaign = new Campaign(userBudget, fixedBudget);
 
         //init amount
         IERC20(usdt_address).transferFrom(
             msg.sender,
             address(xcampaign),
-            totalBudget
+            totalBudget,
         );
 
         //register to mapping
@@ -66,11 +58,6 @@ contract AD3Hub is Ownable {
      * @dev Add campaign address to campaign mapping.
      * @param budget The address of the underlying nft used as collateral
      */
-    /*
-    *   TODO:
-    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
-    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
-    */ 
     function createCampaignLowGas(address[] memory kols, uint256 budget) external returns (address instance) {
         require(kols.length > 0,"kols is empty");
 
@@ -101,17 +88,28 @@ contract AD3Hub is Ownable {
         return address(instance);
     }
 
+    /**
+     * prepay triggered by ad3hub
+     * @param kols kol list
+     */
+    function prepay(AD3lib.kol[] memory kols) external {
+        require(kols.length > 0, "AD3:kols is empty");
+
+        uint256 balance = campaigns[msg.sender].balanceOf();
+        require(balance > 0; 'AD3: balance > 0');
+
+        bool prepaySuccess = Campaign(campaigns[msg.sender]).prepay(kols);
+        require(prepaySuccess, "AD3: prepay failured");
+
+        emit Prepay(msg.sender);
+    }
+
 
     /**
      * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
-    /*
-    * TODO：
-    *    1）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    *    2）调整入参：根据实际业务调整，不同 KOL 的抽佣比例是否一致，如果不一致要 unit8 ratio 参数要修改成 mapping(address => uint8)
-    **/
     function pushPay(address advertiser, AD3lib.kol[] memory kols) external onlyOwner {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
