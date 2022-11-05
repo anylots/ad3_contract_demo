@@ -20,7 +20,7 @@ import "./AD3lib.sol";
 *   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
 **/
 contract Campaign is ERC20, Ownable {
-    AD3lib.kol[] public storage _kolStorages;
+    mapping(address => AD3lib.kol) public storage _kolStorage;
     address public _ad3hub;
     uint256 public _totalBudget;
     uint256 public _userBudget;
@@ -57,7 +57,7 @@ contract Campaign is ERC20, Ownable {
             require(kol.ratio >= 0, "AD3: kol ratio < 0");
             require(kol.ratio < 100, "AD3: kol ratio >= 100");
 
-            _kolStorages[i] = kol;
+            _kolStorages[kol._address] = kol;
         }
     }
 
@@ -66,11 +66,12 @@ contract Campaign is ERC20, Ownable {
         return balance;
     }
 
-    function prepay() public onlyAd3Hub returns (bool) {
+    function prepay(address[] memory kols) public onlyAd3Hub returns (bool) {
         require(_paymentStage < 2, "AD3: prepay already done");
 
-        for (uint64 i = 0; i < _kolStorages.length; i++) {
-            AD3lib.kol kol = _kolStorages[i];
+        for (uint64 i = 0; i < kols.length; i++) {
+            address kolAddress = kols[i];
+            AD3lib.kol kol = _kolStorage[kolAddress];
             
             //pay for kol
             require(
@@ -81,22 +82,6 @@ contract Campaign is ERC20, Ownable {
         _paymentStage++;
         return true;
     }
-
-    /**
-     * @dev See `IERC20.transfer`.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    /*
-    * TODO：
-    *    1）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    *    2）调整入参：根据实际业务调整，不同 KOL 的抽佣比例是否一致，如果不一致要 unit8 ratio 参数要修改成 mapping(address => uint8)
-    *    3）增加逻辑：结算逻辑需要对各个 KOL 支付抽佣金额、各个用户支付激励金额
-    *    4）增加逻辑：结算后资金有剩余，需要退回剩余金额给广告主
-    **/
     function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyAd3Hub returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
         uint256 balance = IERC20(usdt).balanceOf(address(this));

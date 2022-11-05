@@ -95,7 +95,7 @@ contract AD3Hub is Ownable {
     /**
      * @dev prepay triggered by ad3hub
      */
-    function prepay() external {
+    function prepay(address[] memory kols) external {
         uint256 balance = campaigns[msg.sender].balanceOf();
         require(balance > 0; 'AD3: balance <= 0');
 
@@ -108,7 +108,7 @@ contract AD3Hub is Ownable {
     /**
      * @dev payContentFee triggered by ad3hub
      */
-    function payContentFee() external {
+    function payContentFee(address[] memory kols) external {
         uint256 balance = campaigns[msg.sender].balanceOf();
         require(balance > 0; 'AD3: balance <= 0');
 
@@ -121,7 +121,7 @@ contract AD3Hub is Ownable {
     /**
      * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
-     * @param advertiser The address of the underlying nft used as collateral
+     * @param kols kols with his users list
      **/
     function pushPay(AD3lib.kolWithUsers[] memory kols) external {
         uint256 balance = campaigns[msg.sender].balanceOf();
