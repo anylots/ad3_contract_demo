@@ -20,6 +20,7 @@ import "./AD3lib.sol";
 *   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
 **/
 contract Campaign is ERC20, Ownable {
+    AD3lib.kol[] public storage _kolStorages;
     address public _ad3hub;
     uint256 public _totalBudget;
     uint256 public _userBudget;
@@ -49,8 +50,14 @@ contract Campaign is ERC20, Ownable {
         _userBudget = userBudget;
         _totalBudget = totalBudget;
 
-        for (uint i = 0; i < kols.length; i++) {
-            
+        for (uint64 i = 0; i < kols.length; i++) {
+            AD3lib.kol kol = kols[i];
+            require(kol._address, "AD3: kol_address does not exist");
+            require(kol.fixedFee > 0, "AD3: kol fixedFee <= 0");
+            require(kol.ratio >= 0, "AD3: kol ratio < 0");
+            require(kol.ratio < 100, "AD3: kol ratio >= 100");
+
+            _kolStorages[i] = kol;
         }
     }
 
@@ -59,21 +66,18 @@ contract Campaign is ERC20, Ownable {
         return balance;
     }
 
-    function prepay(AD3lib.kol[] memory kols) public onlyAd3Hub returns (bool) {
-        require(_paymentStage == 0, "AD3: prepay already done");
-        require(kols.length > 0, "AD3: kols of pay is empty");
+    function prepay() public onlyAd3Hub returns (bool) {
+        require(_paymentStage < 2, "AD3: prepay already done");
 
-        for (uint64 i = 0; i < kols.length; i++) {
-            address kol = kols[i];
-            require(kol._address, "AD3Hub: kol_address does not exist");
-
+        for (uint64 i = 0; i < _kolStorages.length; i++) {
+            AD3lib.kol kol = _kolStorages[i];
             
-
             //pay for kol
             require(
-                IERC20(usdt).transfer(kol_address, _kolStorages[kol_address].fixedFee / 2)
+                IERC20(usdt).transfer(kol._address, kol.fixedFee / 2);
             );
         }
+
         _paymentStage++;
         return true;
     }
@@ -93,7 +97,7 @@ contract Campaign is ERC20, Ownable {
     *    3）增加逻辑：结算逻辑需要对各个 KOL 支付抽佣金额、各个用户支付激励金额
     *    4）增加逻辑：结算后资金有剩余，需要退回剩余金额给广告主
     **/
-    function comletePay(AD3lib.kol[] memory kols) public onlyOwner returns (bool) {
+    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyAd3Hub returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
         uint256 balance = IERC20(usdt).balanceOf(address(this));
         require(balance > 0,"AD3: comletePay insufficient funds");

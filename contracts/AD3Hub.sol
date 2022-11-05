@@ -15,9 +15,11 @@ contract AD3Hub is Ownable {
 
     event Withdraw(address indexed advertiser);
 
-    event Pushpay(address indexed advertiser, uint8 indexed ratio);
+    event Pushpay(address indexed advertiser);
 
     event Prepay(address indexed advertiser);
+
+    event PayContentFee(address indexed advertiser);
 
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
@@ -42,7 +44,7 @@ contract AD3Hub is Ownable {
         require(totalBudget > 0, "fixedBudget > 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, userBudget, fixedBudget);
+        Campaign xcampaign = new Campaign(userBudget, fixedBudget);
 
         //init amount
         IERC20(usdt_address).transferFrom(
@@ -94,10 +96,8 @@ contract AD3Hub is Ownable {
      * @dev prepay triggered by ad3hub
      */
     function prepay() external {
-        require(kols.length > 0, "AD3:kols is empty");
-
         uint256 balance = campaigns[msg.sender].balanceOf();
-        require(balance > 0; 'AD3: balance > 0');
+        require(balance > 0; 'AD3: balance <= 0');
 
         bool prepaySuccess = Campaign(campaigns[msg.sender]).prepay(kols);
         require(prepaySuccess, "AD3: prepay failured");
@@ -105,24 +105,17 @@ contract AD3Hub is Ownable {
         emit Prepay(msg.sender);
     }
 
-
     /**
-     * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
-     * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
-     * @param advertiser The address of the underlying nft used as collateral
-     **/
-    function pushPay(address advertiser, AD3lib.kol[] memory kols) external onlyOwner {
-        require(advertiser != address(0), "AD3Hub: advertiser is zero address");
+     * @dev payContentFee triggered by ad3hub
+     */
+    function payContentFee() external {
+        uint256 balance = campaigns[msg.sender].balanceOf();
+        require(balance > 0; 'AD3: balance <= 0');
 
-        require(
-            campaigns[advertiser] != address(0),
-            "AD3Hub: advertiser not create campaign"
-        );
+        bool payContentFeeSuccess = Campaign(campaigns[msg.sender]).prepay(kols);
+        require(payContentFeeSuccess, "AD3: payContentFee failured");
 
-        //withdraw campaign amount to advertiser
-        // Campaign(campaigns[advertiser]).pushPay(kols);
-
-        // emit Pushpay(advertiser, ratio);
+        emit PayContentFee(msg.sender);
     }
 
     /**
@@ -130,11 +123,21 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
-    /*
-    * TODO：
-    *   1）调整函数名，含义为终止广告活动，提前结算并且返回剩余资金到广告主
-    *   2）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    */
+    function pushPay(AD3lib.kolWithUsers[] memory kols) external {
+        uint256 balance = campaigns[msg.sender].balanceOf();
+        require(balance > 0; 'AD3: balance <= 0');
+
+        bool pushPaySuccess = Campaign(campaigns[msg.sender]).pushPay(kols);
+        require(pushPaySuccess, "AD3: pushPay failured");
+
+        emit PushPay(msg.sender);
+    }
+
+    /**
+     * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
+     * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
+     * @param advertiser The address of the underlying nft used as collateral
+     **/
     function withdraw(address advertiser) external onlyOwner {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
