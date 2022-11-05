@@ -15,40 +15,37 @@ contract AD3Hub is Ownable {
 
     event Withdraw(address indexed advertiser);
 
-    event Pushpay(address indexed advertiser, uint8 indexed ratio);
+    event Pushpay(address indexed advertiser);
+
+    event Prepay(address indexed advertiser);
+
+    event PayContentFee(address indexed advertiser);
 
     address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     // Mapping from Advertiser address to campaign address
-    mapping(address => address) internal campaigns;
+    mapping(address => mapping(uint256 => address)) internal campaigns;
 
     // Mapping from Advertiser address to historyCampaign address
     mapping(address => address) internal historyCampaigns;
-    
-    struct kol{
-        address[] users;
-        uint ratio;
-    }
 
     /**
-     * @dev Add nft->xnft address pair to nfts.
-     * @param userBudget The address of the underlying nft used as collateral
+     * 1）创建订单合约时需要确认 KOL 名单 - KOL 地址、KOL 固定制作费用、KOL 抽佣比例
+     * 2）创建订单合约时需要确认广告主 - 固定制作费用总预算 + 用户激励总预算 = 广告总预算
+     * 3）创建订单合约触发时机 - 广告主在签约页面上主动点击【创建广告】按钮触发，并签字转账
      */
-    /*
-    *   TODO:
-    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
-    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
-    */ 
-    function createCampaign(address[] memory kols,
-        uint256[] memory productAmounts,
-        uint8[] memory ratios,
-        uint256 userBudget,
-        uint256 totalBudget
-        ) external returns (address){
-        require(kols.length > 0,"kols is empty");
+    function createCampaign(
+        AD3lib.kol[] kols,
+        uint256 totalBudget,
+        uint256 userFee
+    ) external returns (address) {
+        require(kols.length > 0, "AD3: kols is empty");
+        require(userBudget > 0, "AD3: userBudget > 0");
+        require(totalBudget > 0, "AD3: fixedBudget > 0");
+        require(userFee > 0, "AD3: userFee <= 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, productAmounts, ratios, userBudget);
+        Campaign xcampaign = new Campaign(kols, userFee);
 
         //init amount
         IERC20(usdt_address).transferFrom(
@@ -58,7 +55,8 @@ contract AD3Hub is Ownable {
         );
 
         //register to mapping
-        campaigns[msg.sender] = address(xcampaign);
+        uint256 length = campaigns[msg.sender];
+        campaigns[msg.sender][length] = address(xcampaign);
         return address(xcampaign);
     }
 
@@ -66,11 +64,6 @@ contract AD3Hub is Ownable {
      * @dev Add campaign address to campaign mapping.
      * @param budget The address of the underlying nft used as collateral
      */
-    /*
-    *   TODO:
-    *     1) 增加入参：prepaidKols，用于标识需要提前支付内容制作费 OR 一口价的 KOL 以及金额（mapping(address => uint8)）
-    *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
-    */ 
     function createCampaignLowGas(address[] memory kols, uint256 budget) external returns (address instance) {
         require(kols.length > 0,"kols is empty");
 
@@ -95,35 +88,54 @@ contract AD3Hub is Ownable {
         );
 
         //register to mapping
-        campaigns[msg.sender] = address(instance);
+        campaigns[msg.sender][length] = address(xcampaign);
 
 
         return address(instance);
     }
 
+    /**
+     * @dev prepay triggered by ad3hub
+     */
+    function prepay(address[] memory kols, address advertiser, uint256 campaignId) external {
+        uint256 balance = campaigns[advertiser][campaignId].balanceOf();
+        require(balance > 0, 'AD3: balance <= 0');
+
+        bool prepaySuccess = Campaign(campaigns[advertiser][campaignId]).prepay(kols);
+        require(prepaySuccess, "AD3: prepay failured");
+
+        emit Prepay(msg.sender);
+    }
+
+    /**
+     * @dev payContentFee triggered by ad3hub
+     */
+    function payContentFee(address[] memory kols, address advertiser, uint256 campaignId) external {
+        uint256 balance = campaigns[msg.sender].balanceOf();
+        require(balance > 0, 'AD3: balance <= 0');
+
+        bool payContentFeeSuccess = Campaign(campaigns[advertiser][campaignId]).prepay(kols);
+        require(payContentFeeSuccess, "AD3: payContentFee failured");
+
+        emit PayContentFee(msg.sender);
+    }
 
     /**
      * @dev Withdraws an `amount` of underlying asset into the reserve, burning the equivalent bTokens owned.
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
-     * @param advertiser The address of the underlying nft used as collateral
+     * @param kols kols with his users list
      **/
-    /*
-    * TODO：
-    *    1）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    *    2）调整入参：根据实际业务调整，不同 KOL 的抽佣比例是否一致，如果不一致要 unit8 ratio 参数要修改成 mapping(address => uint8)
-    **/
-    function pushPay(address advertiser, AD3lib.kol[] memory kols) external onlyOwner {
-        require(advertiser != address(0), "AD3Hub: advertiser is zero address");
+    function pushPay(AD3lib.kolWithUsers[] memory kols, address advertiser, uint256 campaignId) external {
+        uint256 balance = campaigns[advertiser].balanceOf();
+        require(balance > 0, 'AD3: balance <= 0');
 
-        require(
-            campaigns[advertiser] != address(0),
-            "AD3Hub: advertiser not create campaign"
-        );
+        bool pushPaySuccess = Campaign(campaigns[advertiser][campaignId]).pushPay(kols);
+        require(pushPaySuccess, "AD3: pushPay failured");
+        emit PushPay(advertiser);
 
-        //withdraw campaign amount to advertiser
-        // Campaign(campaigns[advertiser]).pushPay(kols);
-
-        // emit Pushpay(advertiser, ratio);
+        bool withdrawSuccess = Campaign(campaigns[advertiser][campaignId]).withdraw(advertiser);
+        require(withdrawSuccess, "AD3: withdraw failured");
+        emit Withdraw(advertiser);
     }
 
     /**
@@ -131,12 +143,7 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
-    /*
-    * TODO：
-    *   1）调整函数名，含义为终止广告活动，提前结算并且返回剩余资金到广告主
-    *   2）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    */
-    function withdraw(address advertiser) external onlyOwner {
+    function withdraw(address advertiser, uint256 campaignId) external {
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
         require(
@@ -144,11 +151,12 @@ contract AD3Hub is Ownable {
             "AD3Hub: advertiser not create campaign"
         );
 
-        //withdraw campaign amount to advertiser
-        Campaign(campaigns[advertiser]).withdraw(advertiser);
+        bool withdrawSuccess = Campaign(campaigns[advertiser][campaignId]).withdraw(advertiser);
+        require(withdrawSuccess, "AD3: withdraw failured");
+        emit Withdraw(advertiser);
 
-        historyCampaigns[advertiser] = campaigns[advertiser];
-        delete campaigns[advertiser];
+        historyCampaigns[advertiser] = campaigns[advertiser][campaignId];
+        delete campaigns[advertiser][campaignId];
 
 
         emit Withdraw(advertiser);
@@ -158,8 +166,22 @@ contract AD3Hub is Ownable {
      * @dev get Address of Campaign
      * @param advertiser The address of the advertiser who create campaign
      **/
-    function getCampaignAddress(address advertiser) public view returns(address){
+    function getCampaignAddress(address advertiser, uint256 campaignId) public view returns(address){
         require(advertiser != address(0), "NFTPool: nftAsset is zero address");
-        return campaigns[advertiser];
+        return campaigns[advertiser][campaignId];
+    }
+
+    /**
+     * @dev get Address of Campaign
+     * @param advertiser The address of the advertiser who create campaign
+     **/
+    function getCampaignAddressList(address advertiser) public view returns(address[]){
+        require(advertiser != address(0), "NFTPool: nftAsset is zero address");
+        uint256 length = campaigns[msg.sender];
+        address[] campaignList;
+        for(uint256 i =0; i<length; i++){
+            campaignList[i] = campaigns[msg.sender][i];
+        }
+        return campaignList;
     }
 }
