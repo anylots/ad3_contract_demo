@@ -85,27 +85,33 @@ contract Campaign is ERC20, Ownable {
         _paymentStage++;
         return true;
     }
-    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyAd3Hub returns (bool) {
+
+    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyOwner returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
 
         uint256 balance = IERC20(usdt).balanceOf(address(this));
         require(balance > 0,"AD3: comletePay insufficient funds");
 
-        for (uint64 i = 0; i < kols.length; i++) { 
-            address kol_address = kols[i].kol_address;
-            require(_kolStorages[kol_address].kol_address != address(0), "AD3: kol_address does not exist");
+        for (uint64 i = 0; i < kols.length; i++) {
+            AD3lib.kolWithUsers kolWithUsers = kols[i];
 
-            uint8 ratio = _kolStorages[kol_address].ratio;
-            ////pay for kol
+            address[] users = kolWithUsers.users;
+            require(user.length > 0, "AD3: users list is empty");
+
+            AD3lib.kol kol = _kolStorages[kolWithUsers._address];
+
+            // pay for kol
             require(
-                IERC20(usdt).transfer(kol_address, _userBudget * ratio/100)
+                IERC20(usdt).transfer(kol._address, (users.length * userFee) / kol.ratio)
             );
-            address[] memory users = kols[i].users;
-            uint256 userAmount = _userBudget * (100-ratio) / 100;
-            //pay for users
-            for(uint64 index=0; index<users.length; index++){
+
+            for (uint64 i = 0; i < users.length; i++) {
+                address userAddress = users[i];
+                require(userAddress != address(0), "user_address is not exist");
+
+                // pay for user
                 require(
-                    IERC20(usdt).transfer(users[index], userAmount)
+                    IERC20(usdt).transfer(userAddress, userFee);
                 );
             }
         }
@@ -113,35 +119,14 @@ contract Campaign is ERC20, Ownable {
         return true;
     }
 
-    /**
-     * @dev See `IERC20.transfer`.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    /*
-    * TODO：
-    *   1）调整函数名，含义为终止广告活动，提前结算并且返回剩余资金到广告主
-    *   2）增加入参：传入 kols 与需要获得激励的用户 address 映射的集合（mapping(address => address[])
-    *   3）增加逻辑：计算已产生的预支付费用 + kol 抽佣费用 + 用户激励费用，返回剩余金额给广告主
-    */
-    function withdraw(address advertiser) public onlyOwner {
+    function withdraw(address advertiser) public onlyOwner returns (bool) {
         uint256 balance = IERC20(usdt).balanceOf(address(this));
 
         require(IERC20(usdt).transferFrom(address(this), advertiser, balance));
+
+        return true;
     }
 
-
-    /**
-     * @dev setServiceCharge.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
     function setServiceCharge(uint8 value) public onlyOwner {
         require(value > 0,"AD3: serviceCharge <= 0");
         require(value <= 10,"AD3: serviceCharge > 10");

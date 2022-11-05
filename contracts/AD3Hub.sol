@@ -46,7 +46,7 @@ contract AD3Hub is Ownable {
         require(userFee > 0, "AD3: userFee <= 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, userBudget, fixedBudget, userFee);
+        Campaign xcampaign = new Campaign(kols,userBudget, fixedBudget, userFee);
 
         //init amount
         IERC20(usdt_address).transferFrom(
@@ -125,14 +125,17 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param kols kols with his users list
      **/
-    function pushPay(AD3lib.kolWithUsers[] memory kols) external {
-        uint256 balance = campaigns[msg.sender].balanceOf();
+    function pushPay(AD3lib.kolWithUsers[] memory kols, address advertiser) external {
+        uint256 balance = campaigns[advertiser].balanceOf();
         require(balance > 0; 'AD3: balance <= 0');
 
-        bool pushPaySuccess = Campaign(campaigns[msg.sender]).pushPay(kols);
+        bool pushPaySuccess = Campaign(campaigns[advertiser]).pushPay(kols);
         require(pushPaySuccess, "AD3: pushPay failured");
+        emit PushPay(advertiser);
 
-        emit PushPay(msg.sender);
+        bool withdrawSucceess = Campaign(campaigns[advertiser]).withdraw(advertiser);
+        require(withdrawSucceess, "AD3: withdraw failured");
+        emit Withdraw(advertiser);
     }
 
     /**
@@ -140,23 +143,23 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
-    function withdraw(address advertiser) external onlyOwner {
-        require(advertiser != address(0), "AD3Hub: advertiser is zero address");
+    // function withdraw(address advertiser) external {
+    //     require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
-        require(
-            campaigns[advertiser] != address(0),
-            "AD3Hub: advertiser not create campaign"
-        );
+    //     require(
+    //         campaigns[advertiser] != address(0),
+    //         "AD3Hub: advertiser not create campaign"
+    //     );
 
-        //withdraw campaign amount to advertiser
-        Campaign(campaigns[advertiser]).withdraw(advertiser);
+    //     //withdraw campaign amount to advertiser
+    //     Campaign(campaigns[advertiser]).withdraw(advertiser);
 
-        historyCampaigns[advertiser] = campaigns[advertiser];
-        delete campaigns[advertiser];
+    //     historyCampaigns[advertiser] = campaigns[advertiser];
+    //     delete campaigns[advertiser];
 
 
-        emit Withdraw(advertiser);
-    }
+    //     emit Withdraw(advertiser);
+    // }
 
     /**
      * @dev get Address of Campaign
