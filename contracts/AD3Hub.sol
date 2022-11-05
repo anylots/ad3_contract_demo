@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Campaign.sol";
-import "./AD3lib.sol";
 
 
 contract AD3Hub is Ownable {
@@ -24,15 +23,9 @@ contract AD3Hub is Ownable {
 
     // Mapping from Advertiser address to historyCampaign address
     mapping(address => address) internal historyCampaigns;
-    
-    struct kol{
-        address[] users;
-        uint ratio;
-    }
 
     /**
      * @dev Add nft->xnft address pair to nfts.
-     * @param userBudget The address of the underlying nft used as collateral
      */
     /*
     *   TODO:
@@ -40,15 +33,35 @@ contract AD3Hub is Ownable {
     *     2）增加逻辑：调用 xcampaign 内部的 prepaid 预支付函数
     */ 
     function createCampaign(address[] memory kols,
-        uint256[] memory productAmounts,
+        uint32[] memory fixedFees,
         uint8[] memory ratios,
-        uint256 userBudget,
-        uint256 totalBudget
+        uint32 fixedFeeBudget,
+        uint32 effectCostFeeBudget,
+        uint256 costPerUser
         ) external returns (address){
         require(kols.length > 0,"kols is empty");
+        require(fixedFee.length > 0,"fixedFee is empty");
+        require(ratios.length > 0,"ratios is empty");
+
+        //kol
+        Kol[] _kols;
+        for(uint32 i=0; i<kols.length; i++){
+            address kolAddress = kols[i];
+            uint32 fixedFee = fixedFees[i];
+            uint8 ratio = ratios[i];
+            require(kolAddress != address(0), "AD3Hub: kolAddress is zero address");
+            require(fixedFee > 0,"AD3: kol fixedFee <= 0");
+            require(ratio > 0 && ratio <= 100,"AD3: kol commission ratio <= 0 > 100");
+
+            _kols.push(Kol(kolAddress, fixedFee, ratio));
+        }
+
+        //budget
+        uint32 totalBudget = fixedFeeBudget + effectCostFeeBudget;
+        Budget budget = Budget(fixedFeeBudget, effectCostFeeBudget, costPerUser);
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, productAmounts, ratios, userBudget);
+        Campaign xcampaign = new Campaign(_kols, budget);
 
         //init amount
         IERC20(usdt_address).transferFrom(

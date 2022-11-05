@@ -40,5 +40,9 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.0"
+  },
+  "main": "hardhat.config.js",
+  "directories": {
+    "test": "test"
   }
 }
