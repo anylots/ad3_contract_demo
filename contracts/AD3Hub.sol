@@ -38,13 +38,15 @@ contract AD3Hub is Ownable {
         AD3lib.kol[] kols,
         uint256 userBudget,
         uint256 totalBudget,
+        uint256 userFee,
     ) external returns (address) {
         require(kols.length > 0, "AD3: kols is empty");
         require(userBudget > 0, "AD3: userBudget > 0");
-        require(totalBudget > 0, "fixedBudget > 0");
+        require(totalBudget > 0, "AD3: fixedBudget > 0");
+        require(userFee > 0, "AD3: userFee <= 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(userBudget, fixedBudget);
+        Campaign xcampaign = new Campaign(kols, userBudget, fixedBudget, userFee);
 
         //init amount
         IERC20(usdt_address).transferFrom(

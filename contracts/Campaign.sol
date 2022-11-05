@@ -20,11 +20,12 @@ import "./AD3lib.sol";
 *   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
 **/
 contract Campaign is ERC20, Ownable {
-    mapping(address => AD3lib.kol) public storage _kolStorage;
-    address public _ad3hub;
-    uint256 public _totalBudget;
-    uint256 public _userBudget;
-    uint256 public _serviceCharge = 5;
+    mapping(address => AD3lib.kol) public _kolStorages;
+    address public storage _ad3hub;
+    uint256 public storage _totalBudget;
+    uint256 public storage _userBudget;
+    uint256 public storage _serviceCharge = 5;
+    uint public storage _userFee;
     uint public storage _paymentStage = 0;
     address public usdt = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
 
@@ -45,10 +46,12 @@ contract Campaign is ERC20, Ownable {
         AD3lib.kol[] kols,
         uint256 userBudget,
         uint256 totalBudget,
+        uint256 userFee,
     ) payable ERC20("name", "symbol") {
         _ad3hub = msg.sender;
         _userBudget = userBudget;
         _totalBudget = totalBudget;
+        _userFee = userFee;
 
         for (uint64 i = 0; i < kols.length; i++) {
             AD3lib.kol kol = kols[i];
@@ -71,7 +74,7 @@ contract Campaign is ERC20, Ownable {
 
         for (uint64 i = 0; i < kols.length; i++) {
             address kolAddress = kols[i];
-            AD3lib.kol kol = _kolStorage[kolAddress];
+            AD3lib.kol kol = _kolStorages[kolAddress];
             
             //pay for kol
             require(
@@ -84,12 +87,13 @@ contract Campaign is ERC20, Ownable {
     }
     function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyAd3Hub returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
+
         uint256 balance = IERC20(usdt).balanceOf(address(this));
         require(balance > 0,"AD3: comletePay insufficient funds");
 
-        for(uint64 i=0; i<kols.length; i++){
-            address kol_address=kols[i].kol_address;
-            require(_kolStorages[kol_address].kol_address != address(0), "AD3Hub: kol_address does not exist");
+        for (uint64 i = 0; i < kols.length; i++) { 
+            address kol_address = kols[i].kol_address;
+            require(_kolStorages[kol_address].kol_address != address(0), "AD3: kol_address does not exist");
 
             uint8 ratio = _kolStorages[kol_address].ratio;
             ////pay for kol
