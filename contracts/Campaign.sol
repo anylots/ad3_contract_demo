@@ -122,7 +122,7 @@ contract Campaign is ERC20, Ownable {
     *    3）增加逻辑：结算逻辑需要对各个 KOL 支付抽佣金额、各个用户支付激励金额
     *    4）增加逻辑：结算后资金有剩余，需要退回剩余金额给广告主
     **/
-    function settle(kol[] memory kols) public onlyOwner returns (bool) {
+    function settle(Kol[] memory kols) public onlyOwner returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
         uint256 balance = IERC20(usdt).balanceOf(address(this));
         require(balance > 0,"AD3: comletePay insufficient funds");
@@ -150,6 +150,7 @@ contract Campaign is ERC20, Ownable {
             }
         }
 
+        _status = CampaignStatus.SETTLED;
         return true;
     }
 
