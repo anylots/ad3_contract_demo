@@ -41,12 +41,17 @@ contract Campaign is ERC20, Ownable {
      * @param totalBuget 
      */
     constructor(
+        AD3lib.kol[] kols,
         uint256 userBudget,
         uint256 totalBudget,
     ) payable ERC20("name", "symbol") {
         _ad3hub = msg.sender;
         _userBudget = userBudget;
         _totalBudget = totalBudget;
+
+        for (uint i = 0; i < kols.length; i++) {
+            
+        }
     }
 
     function balanceOf() view onlyAd3Hub returns (uint256) {

@@ -10,13 +10,13 @@ library AD3lib {
         address _address;
         // 固定制作费用
         uint256 fixedFee;
+        // 抽佣比例
+        uint8 ratio;
     }
 
     struct kolWithUsers {
         // kol 地址
         address _address;
-        // 抽佣比例
-        uint8 ratio;
         // 抽佣用户
         address[] users;
     }

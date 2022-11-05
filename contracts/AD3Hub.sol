@@ -33,14 +33,16 @@ contract AD3Hub is Ownable {
      * 3）创建订单合约触发时机 - 广告主在签约页面上主动点击【创建广告】按钮触发，并签字转账
      */
     function createCampaign(
+        AD3lib.kol[] kols,
         uint256 userBudget,
         uint256 totalBudget,
     ) external returns (address) {
-        require(userBudget > 0, "userBudget > 0");
+        require(kols.length > 0, "AD3: kols is empty");
+        require(userBudget > 0, "AD3: userBudget > 0");
         require(totalBudget > 0, "fixedBudget > 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(userBudget, fixedBudget);
+        Campaign xcampaign = new Campaign(kols, userBudget, fixedBudget);
 
         //init amount
         IERC20(usdt_address).transferFrom(
@@ -89,10 +91,9 @@ contract AD3Hub is Ownable {
     }
 
     /**
-     * prepay triggered by ad3hub
-     * @param kols kol list
+     * @dev prepay triggered by ad3hub
      */
-    function prepay(AD3lib.kol[] memory kols) external {
+    function prepay() external {
         require(kols.length > 0, "AD3:kols is empty");
 
         uint256 balance = campaigns[msg.sender].balanceOf();
