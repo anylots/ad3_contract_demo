@@ -5,6 +5,8 @@ const Campaign = require("../artifacts/contracts/Campaign.sol/Campaign.json")
 // yours, or create new ones.
 async function main() {
   let privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  const Campaign1 = await ethers.getContractFactory("Campaign");
+  console.log(Campaign1.abi);
 
   // Connect a wallet to localhost
   let customHttpProvider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
@@ -22,6 +24,7 @@ async function main() {
   console.log(1);
 
   const Campaign = await ethers.getContractFactory("Campaign");
+  
   const campaign = await Campaign.deploy(kols, 100);
 
   let result = await campaign.deployed();

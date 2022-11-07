@@ -21,10 +21,10 @@ contract AD3Hub is Ownable {
 
     event PayContentFee(address indexed advertiser);
 
-    address public usdt_address = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address public _paymentToken;
 
     // Mapping from Advertiser address to campaign address
-    mapping(address => mapping(uint256 => address)) internal campaigns;
+    mapping(address => mapping(uint64 => address)) internal campaigns;
 
     mapping(address => uint64) internal campaignIds;
 
@@ -33,9 +33,7 @@ contract AD3Hub is Ownable {
     mapping(address => address) internal historyCampaigns;
 
     /**
-     * 1）创建订单合约时需要确认 KOL 名单 - KOL 地址、KOL 固定制作费用、KOL 抽佣比例
-     * 2）创建订单合约时需要确认广告主 - 固定制作费用总预算 + 用户激励总预算 = 广告总预算
-     * 3）创建订单合约触发时机 - 广告主在签约页面上主动点击【创建广告】按钮触发，并签字转账
+     * 
      */
     function createCampaign(
         AD3lib.kol[] memory kols,
@@ -47,18 +45,20 @@ contract AD3Hub is Ownable {
         require(userFee > 0, "AD3: userFee <= 0");
 
         //create campaign
-        Campaign xcampaign = new Campaign(kols, userFee);
+        Campaign xcampaign = new Campaign(kols, userFee, _paymentToken);
 
         //init amount
-        IERC20(usdt_address).transferFrom(
+        IERC20(_paymentToken).transferFrom(
             msg.sender,
             address(xcampaign),
             totalBudget
         );
 
         //register to mapping
-        uint256 length = campaignIds[msg.sender];
+        uint64 length = campaignIds[msg.sender];
+        length++;
         campaigns[msg.sender][length] = address(xcampaign);
+        campaignIds[msg.sender] = length;
         return address(xcampaign);
     }
 
@@ -83,38 +83,25 @@ contract AD3Hub is Ownable {
         require(success == true,"createCampaign init fail");
 
         //init amount
-        IERC20(usdt_address).transferFrom(
+        IERC20(_paymentToken).transferFrom(
             msg.sender,
             address(instance),
             budget
         );
 
         //register to mapping
-        uint256 length = campaignIds[msg.sender];
+        uint64 length = campaignIds[msg.sender];
+        campaignIds[msg.sender] = length++;
         campaigns[msg.sender][length] = address(instance);
-
-
         return address(instance);
     }
 
-    /**
-     * @dev prepay triggered by ad3hub
-     */
-    function prepay(address[] memory kols, address advertiser, uint256 campaignId) external {
-        uint256 balance = IERC20(usdt_address).balanceOf(campaigns[advertiser][campaignId]);
-        require(balance > 0, 'AD3: balance <= 0');
-
-        bool prepaySuccess = Campaign(campaigns[advertiser][campaignId]).prepay(kols);
-        require(prepaySuccess, "AD3: prepay failured");
-
-        emit Prepay(msg.sender);
-    }
 
     /**
      * @dev payContentFee triggered by ad3hub
      */
-    function payContentFee(address[] memory kols, address advertiser, uint256 campaignId) external {
-        uint256 balance = IERC20(usdt_address).balanceOf(campaigns[advertiser][campaignId]);
+    function payfixFee(address[] memory kols, address advertiser, uint64 campaignId) external onlyOwner{
+        uint256 balance = IERC20(_paymentToken).balanceOf(campaigns[advertiser][campaignId]);
         require(balance > 0, 'AD3: balance <= 0');
 
         bool payContentFeeSuccess = Campaign(campaigns[advertiser][campaignId]).prepay(kols);
@@ -128,8 +115,8 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param kols kols with his users list
      **/
-    function pushPay(AD3lib.kolWithUsers[] memory kols, address advertiser, uint256 campaignId) external {
-        uint256 balance = IERC20(usdt_address).balanceOf(campaigns[advertiser][campaignId]);
+    function pushPay(AD3lib.kolWithUsers[] memory kols, address advertiser, uint64 campaignId) external onlyOwner{
+        uint256 balance = IERC20(_paymentToken).balanceOf(campaigns[advertiser][campaignId]);
         require(balance > 0, 'AD3: balance <= 0');
 
         bool pushPaySuccess = Campaign(campaigns[advertiser][campaignId]).pushPay(kols);
@@ -146,7 +133,7 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param advertiser The address of the underlying nft used as collateral
      **/
-    function withdraw(address advertiser, uint256 campaignId) external {
+    function withdraw(address advertiser, uint64 campaignId) external onlyOwner{
         require(advertiser != address(0), "AD3Hub: advertiser is zero address");
 
         require(
@@ -165,11 +152,16 @@ contract AD3Hub is Ownable {
         emit Withdraw(advertiser);
     }
 
+    function setPaymentToken(address token) external onlyOwner{
+        require(token != address(0), "AD3Hub: advertiser is zero address");
+        _paymentToken = token;
+    }
+
     /**
      * @dev get Address of Campaign
      * @param advertiser The address of the advertiser who create campaign
      **/
-    function getCampaignAddress(address advertiser, uint256 campaignId) public view returns(address){
+    function getCampaignAddress(address advertiser, uint64 campaignId) public view returns(address){
         require(advertiser != address(0), "NFTPool: nftAsset is zero address");
         return campaigns[advertiser][campaignId];
     }
@@ -180,10 +172,13 @@ contract AD3Hub is Ownable {
      **/
     function getCampaignAddressList(address advertiser) public view returns(address[] memory){
         require(advertiser != address(0), "NFTPool: nftAsset is zero address");
-        uint256 length = campaignIds[msg.sender];
-        address[] memory campaignList;
-        for(uint256 i =0; i<length; i++){
-            campaignList[i] = campaigns[msg.sender][i];
+        uint64 length = campaignIds[advertiser];
+        if(length == 0){
+            revert();
+        }
+        address[] memory campaignList = new address[](length);
+        for(uint64 i =0; i<length; i++){
+            campaignList[i] = campaigns[advertiser][i+1];
         }
         return campaignList;
     }

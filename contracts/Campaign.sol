@@ -15,22 +15,18 @@ import "./AD3lib.sol";
  * For full specification of ERC-20 standard see:
  * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
  */
-/*
-* TODO:
-*   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
-**/
 contract Campaign is Ownable {
     mapping(address => AD3lib.kol) public _kolStorages;
     address public _ad3hub;
     uint256 public _serviceCharge = 5;
     uint public _userFee;
     uint public _paymentStage = 0;
-    address public usdt = 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9;
+    address public _paymentToken;
 
     modifier onlyAd3Hub() {
         require(
             msg.sender == _ad3hub,
-            "The caller of this function must be a nftPool"
+            "The caller of this function must be a ad3hub"
         );
         _;
     }
@@ -41,11 +37,12 @@ contract Campaign is Ownable {
      */
     constructor(
         AD3lib.kol[] memory kols,
-        uint256 userFee
+        uint256 userFee,
+        address paymentToken
     ) payable {
         _ad3hub = msg.sender;
         _userFee = userFee;
-
+        _paymentToken = paymentToken;
         for (uint64 i = 0; i < kols.length; i++) {
             AD3lib.kol memory kol = kols[i];
             require(kol._address != address(0), "AD3: kol_address is zero address");
@@ -57,12 +54,12 @@ contract Campaign is Ownable {
         }
     }
 
-    function balanceOf() public view onlyAd3Hub returns (uint256) {
-        uint256 balance = IERC20(usdt).balanceOf(address(this));
+    function remainBalance() public view returns (uint256) {
+        uint256 balance = IERC20(_paymentToken).balanceOf(address(this));
         return balance;
     }
 
-    function prepay(address[] memory kols) public onlyAd3Hub returns (bool) {
+    function prepay(address[] memory kols) public onlyOwner returns (bool) {
 
         for (uint64 i = 0; i < kols.length; i++) {
             address kolAddress = kols[i];
@@ -72,7 +69,7 @@ contract Campaign is Ownable {
             kol._paymentStage++;
             //pay for kol
             require(
-                IERC20(usdt).transfer(kol._address, kol.fixedFee / 2)
+                IERC20(_paymentToken).transfer(kol._address, kol.fixedFee / 2)
             );
         }
 
@@ -80,10 +77,10 @@ contract Campaign is Ownable {
         return true;
     }
 
-    function pushPay(AD3lib.kolWithUsers[] memory kols) public returns (bool) {
+    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyOwner returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
 
-        uint256 balance = IERC20(usdt).balanceOf(address(this));
+        uint256 balance = IERC20(_paymentToken).balanceOf(address(this));
         require(balance > 0,"AD3: comletePay insufficient funds");
 
         for (uint64 i = 0; i < kols.length; i++) {
@@ -94,7 +91,7 @@ contract Campaign is Ownable {
             AD3lib.kol memory kol = _kolStorages[kolWithUsers._address];
             // pay for kol
             require(
-                IERC20(usdt).transfer(kol._address, (users.length * _userFee * kol.ratio) /100 )
+                IERC20(_paymentToken).transfer(kol._address, (users.length * _userFee * kol.ratio) /100 )
             );
 
             for (uint64 index = 0; index < users.length; index++) {
@@ -103,7 +100,7 @@ contract Campaign is Ownable {
 
                 // pay for user
                 require(
-                    IERC20(usdt).transfer(userAddress, _userFee)
+                    IERC20(_paymentToken).transfer(userAddress, _userFee)
                 );
             }
         }
@@ -111,9 +108,9 @@ contract Campaign is Ownable {
     }
 
     function withdraw(address advertiser) public onlyOwner returns (bool) {
-        uint256 balance = IERC20(usdt).balanceOf(address(this));
+        uint256 balance = IERC20(_paymentToken).balanceOf(address(this));
 
-        require(IERC20(usdt).transferFrom(address(this), advertiser, balance));
+        require(IERC20(_paymentToken).transferFrom(address(this), advertiser, balance));
 
         return true;
     }
