@@ -104,7 +104,7 @@ contract AD3Hub is Ownable {
         uint256 balance = IERC20(_paymentToken).balanceOf(campaigns[advertiser][campaignId]);
         require(balance > 0, 'AD3: balance <= 0');
 
-        bool payContentFeeSuccess = Campaign(campaigns[advertiser][campaignId]).prepay(kols);
+        bool payContentFeeSuccess = Campaign(campaigns[advertiser][campaignId]).payfixFee(kols);
         require(payContentFeeSuccess, "AD3: payContentFee failured");
 
         emit PayContentFee(msg.sender);
@@ -155,6 +155,10 @@ contract AD3Hub is Ownable {
     function setPaymentToken(address token) external onlyOwner{
         require(token != address(0), "AD3Hub: advertiser is zero address");
         _paymentToken = token;
+    }
+
+    function getPaymentToken() external view returns (address){
+        return _paymentToken;
     }
 
     /**

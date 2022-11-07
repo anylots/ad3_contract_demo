@@ -1,9 +1,10 @@
 const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const Campaign_Artifact = require("../artifacts/contracts/Campaign.sol/Campaign.json")
+const Token_Artifact = require("../artifacts/contracts/USDT.sol/Token.json")
 
-// `describe` is a Mocha function that allows you to organize your tests.
-describe("Token contract", function () {
+// Ad3 contract uniting test
+describe("Ad3 contract", function () {
 
   async function deployAD3HubFixture() {
     // Get the ContractFactory and Signers here.
@@ -18,6 +19,8 @@ describe("Token contract", function () {
     return { ad3Hub, owner, addr1, addr2 };
   }
 
+
+  // token of payment
   async function deployPaymentToken() {
 
     const USDT = await ethers.getContractFactory("Token");
@@ -26,6 +29,8 @@ describe("Token contract", function () {
     return { token };
   }
 
+
+  //kols for deployment
   async function getKolsFixtrue() {
     const [owner, addr1, addr2] = await ethers.getSigners();
     let kols = [
@@ -45,7 +50,17 @@ describe("Token contract", function () {
     return kols;
   }
 
-  // You can nest describe calls to create subsections.
+  //kols for payfixFee
+  async function getKolsAddress() {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    let kols = [
+      addr1.getAddress(),
+      addr2.getAddress()
+    ];
+    return kols;
+  }
+
+  // Test Deployment of Hub
   describe("Deployment", function () {
 
     it("Should set the right owner", async function () {
@@ -55,18 +70,32 @@ describe("Token contract", function () {
 
     it("Should balance of campaign equals init budget", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
-      const { token } = await loadFixture(deployPaymentToken);
+      const { token } = await deployPaymentToken();
 
       await ad3Hub.setPaymentToken(token.address);
+      let payment = await ad3Hub.getPaymentToken();
+      console.log(payment);
+    });
 
+  });
+
+
+
+  // Test createCampaign
+  describe("CreateCampaign", function () {
+
+    it("create a campaign", async function () {
+      const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
+      const { token } = await deployPaymentToken();
+      await ad3Hub.setPaymentToken(token.address);
+
+      await token.approve(ad3Hub.address, 100000);
 
       let kols = await getKolsFixtrue();
-
       console.log("starting createCampaign");
-      await token.approve(ad3Hub.address, 100000);
       await ad3Hub.createCampaign(kols, 100000, 10);
 
-      let campaignAddress = await ad3Hub.getCampaignAddress(owner.address,1);
+      let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
       console.log(campaignAddress);
 
       let campaignAddressList = await ad3Hub.getCampaignAddressList(owner.address);
@@ -84,19 +113,51 @@ describe("Token contract", function () {
       let result = await Campaign.remainBalance();
       console.log(result);
 
-
       expect(result).to.equal(100000);
     });
+
   });
 
-  // describe("Transactions", function () {
-  //   it("Should transfer tokens between accounts", async function () {
-  //     const { ad3Hub, owner, addr1, addr2 } = await loadFixture(deployTokenFixture);
-  //     // Transfer 50 tokens from owner to addr1
-  //     await expect(ad3Hub.transfer(addr1.address, 50))
-  //       .to.changeTokenBalances(ad3Hub, [owner, addr1], [-50, 50]);
-  //     await expect(ad3Hub.connect(addr1).transfer(addr2.address, 50))
-  //       .to.changeTokenBalances(ad3Hub, [addr1, addr2], [-50, 50]);
-  //   });
-  // });
+
+  // Test Payment
+  describe("Payment", function () {
+    it("payfixFee", async function () {
+      const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
+      const { token } = await deployPaymentToken();
+      await ad3Hub.setPaymentToken(token.address);
+
+      await token.approve(ad3Hub.address, 100000);
+
+      let kols = await getKolsFixtrue();
+      console.log("starting createCampaign");
+      await ad3Hub.createCampaign(kols, 100000, 10);
+
+      let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
+      console.log(campaignAddress);
+
+      let Campaign = new ethers.Contract(
+        campaignAddress,
+        Campaign_Artifact.abi,
+        owner
+      );
+      let resultBeforePay = await Campaign.remainBalance();
+      console.log(resultBeforePay);
+
+      let kolAddress = await getKolsAddress();
+      await ad3Hub.payfixFee(kolAddress, owner.address, 1);
+      let resultAfterPay = await Campaign.remainBalance();
+      console.log(resultAfterPay);
+
+      expect(resultAfterPay).to.equal(100000 - 100);
+    });
+
+
+    it("pushPay", async function () {
+      const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
+      const { token } = await deployPaymentToken();
+      await ad3Hub.setPaymentToken(token.address);
+
+      await token.approve(ad3Hub.address, 100000);
+    });
+  });
 });

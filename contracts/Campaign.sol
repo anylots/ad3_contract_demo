@@ -59,7 +59,7 @@ contract Campaign is Ownable {
         return balance;
     }
 
-    function prepay(address[] memory kols) public onlyOwner returns (bool) {
+    function payfixFee(address[] memory kols) public onlyOwner returns (bool) {
 
         for (uint64 i = 0; i < kols.length; i++) {
             address kolAddress = kols[i];
