@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+const Campaign_Artifact = require("../artifacts/contracts/Campaign.sol/Campaign.json")
 
 // `describe` is a Mocha function that allows you to organize your tests.
 describe("Token contract", function () {
@@ -74,7 +75,17 @@ describe("Token contract", function () {
       expect(campaignAddress).to.equal(campaignAddressList[0]);
 
 
-      // expect(await campaign.remainBalance()).to.equal(100000);
+      let Campaign = new ethers.Contract(
+        campaignAddress,
+        Campaign_Artifact.abi,
+        owner
+      );
+
+      let result = await Campaign.remainBalance();
+      console.log(result);
+
+
+      expect(result).to.equal(100000);
     });
   });
 
