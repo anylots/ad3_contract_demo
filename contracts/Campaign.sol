@@ -37,19 +37,18 @@ contract Campaign is ERC20, Ownable {
 
     /**
      * @dev Constructor.
-     * @param userBudget number of decimal places of one token unit, 18 is widely used
-     * @param totalBuget 
+     * @param kols number of decimal places of one token unit, 18 is widely used
      */
     constructor(
-        AD3lib.kol[] kols,
+        AD3lib.kol[] memory kols,
         uint256 userFee
     ) payable ERC20("name", "symbol") {
         _ad3hub = msg.sender;
         _userFee = userFee;
 
         for (uint64 i = 0; i < kols.length; i++) {
-            AD3lib.kol kol = kols[i];
-            require(kol._address, "AD3: kol_address does not exist");
+            AD3lib.kol memory kol = kols[i];
+            require(kol._address != address(0), "AD3: kol_address is zero address");
             require(kol.fixedFee > 0, "AD3: kol fixedFee <= 0");
             require(kol.ratio >= 0, "AD3: kol ratio < 0");
             require(kol.ratio < 100, "AD3: kol ratio >= 100");
@@ -58,7 +57,7 @@ contract Campaign is ERC20, Ownable {
         }
     }
 
-    function balanceOf() view onlyAd3Hub returns (uint256) {
+    function balanceOf() public view onlyAd3Hub returns (uint256) {
         uint256 balance = IERC20(usdt).balanceOf(address(this));
         return balance;
     }
@@ -67,7 +66,7 @@ contract Campaign is ERC20, Ownable {
 
         for (uint64 i = 0; i < kols.length; i++) {
             address kolAddress = kols[i];
-            AD3lib.kol kol = _kolStorages[kolAddress];
+            AD3lib.kol memory kol = _kolStorages[kolAddress];
             require(kol._paymentStage < 2, "AD3: prepay already done");
             
             kol._paymentStage++;
@@ -88,12 +87,12 @@ contract Campaign is ERC20, Ownable {
         require(balance > 0,"AD3: comletePay insufficient funds");
 
         for (uint64 i = 0; i < kols.length; i++) {
-            AD3lib.kolWithUsers kolWithUsers = kols[i];
+            AD3lib.kolWithUsers memory kolWithUsers = kols[i];
 
-            address[] users = kolWithUsers.users;
+            address[] memory users = kolWithUsers.users;
             require(users.length > 0, "AD3: users list is empty");
 
-            AD3lib.kol kol = _kolStorages[kolWithUsers._address];
+            AD3lib.kol memory kol = _kolStorages[kolWithUsers._address];
 
             // pay for kol
             require(
