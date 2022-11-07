@@ -19,13 +19,13 @@ import "./AD3lib.sol";
 * TODO:
 *   1) 增加函数：prepaid 预支付，创建实例时即向部分 KOL 支付内容制作费 OR 一口价
 **/
-contract Campaign is ERC20, Ownable {
+contract Campaign is Ownable {
     mapping(address => AD3lib.kol) public _kolStorages;
     address public _ad3hub;
     uint256 public _serviceCharge = 5;
     uint public _userFee;
     uint public _paymentStage = 0;
-    address public usdt = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
+    address public usdt = 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9;
 
     modifier onlyAd3Hub() {
         require(
@@ -42,7 +42,7 @@ contract Campaign is ERC20, Ownable {
     constructor(
         AD3lib.kol[] memory kols,
         uint256 userFee
-    ) payable ERC20("name", "symbol") {
+    ) payable {
         _ad3hub = msg.sender;
         _userFee = userFee;
 
@@ -80,7 +80,7 @@ contract Campaign is ERC20, Ownable {
         return true;
     }
 
-    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyOwner returns (bool) {
+    function pushPay(AD3lib.kolWithUsers[] memory kols) public returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
 
         uint256 balance = IERC20(usdt).balanceOf(address(this));
@@ -91,17 +91,15 @@ contract Campaign is ERC20, Ownable {
 
             address[] memory users = kolWithUsers.users;
             require(users.length > 0, "AD3: users list is empty");
-
             AD3lib.kol memory kol = _kolStorages[kolWithUsers._address];
-
             // pay for kol
             require(
-                IERC20(usdt).transfer(kol._address, (users.length * _userFee) / kol.ratio)
+                IERC20(usdt).transfer(kol._address, (users.length * _userFee * kol.ratio) /100 )
             );
 
-            for (uint64 i = 0; i < users.length; i++) {
-                address userAddress = users[i];
-                require(userAddress != address(0), "user_address is not exist");
+            for (uint64 index = 0; index < users.length; index++) {
+                address userAddress = users[index];
+                require(userAddress != address(0), "user_address is zero address");
 
                 // pay for user
                 require(
@@ -109,7 +107,6 @@ contract Campaign is ERC20, Ownable {
                 );
             }
         }
-
         return true;
     }
 
