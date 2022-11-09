@@ -115,8 +115,6 @@ contract AD3Hub is Ownable {
 
         //withdraw campaign amount to advertiser
         Campaign(campaigns[advertiser]).withdraw(advertiser);
-
-        emit Withdraw(advertiser);
     }
 
     /**
