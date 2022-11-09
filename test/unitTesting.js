@@ -12,9 +12,7 @@ describe("Ad3 contract", function () {
     const [owner, addr1, addr2] = await ethers.getSigners();
 
     const ad3Hub = await AD3Hub.deploy();
-
     await ad3Hub.deployed();
-
     // Fixtures can return anything you consider useful for your tests
     return { ad3Hub, owner, addr1, addr2 };
   }
@@ -22,7 +20,6 @@ describe("Ad3 contract", function () {
 
   // token of payment
   async function deployPaymentToken() {
-
     const USDT = await ethers.getContractFactory("Token");
     const token = await USDT.deploy("USDT", "USDT", 2, 10 ** 9);
     await token.deployed();
@@ -50,7 +47,7 @@ describe("Ad3 contract", function () {
     return kols;
   }
 
-  //kols for deployment
+  //kols for pushpay
   async function getKolWithUsers() {
     const [owner, addr1, addr2, addr3, addr4, addr5, addr6, addr7] = await ethers.getSigners();
     let kolWithUsers = [
@@ -79,9 +76,9 @@ describe("Ad3 contract", function () {
 
   // Test Deployment of Hub
   describe("Deployment", function () {
-
     it("Should set the right owner", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
+      //Check ad3Hub's owner
       expect(await ad3Hub.owner()).to.equal(owner.address);
     });
 
@@ -89,54 +86,50 @@ describe("Ad3 contract", function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
 
+      //Set and Check paymentToken
       await ad3Hub.setPaymentToken(token.address);
       let payment = await ad3Hub.getPaymentToken();
       console.log("paymentAddess:" + payment);
       expect(payment).to.equal(token.address);
-
     });
-
   });
 
 
 
   // Test createCampaign
   describe("CreateCampaign", function () {
-
     it("create a campaign", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
       await ad3Hub.setPaymentToken(token.address);
-
       await token.approve(ad3Hub.address, 100000);
 
+      //Create campaign
       let kols = await getKolsFixtrue();
       console.log("starting createCampaign");
       await ad3Hub.createCampaign(kols, 100000, 10);
 
+
+      //Check campaign's address
       let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
       console.log(campaignAddress);
-
       let campaignAddressList = await ad3Hub.getCampaignAddressList(owner.address);
       console.log(campaignAddressList);
       expect(1).to.equal(campaignAddressList.length);
       expect(campaignAddress).to.equal(campaignAddressList[0]);
 
 
+      //Check campaign's balance
       let Campaign = new ethers.Contract(
         campaignAddress,
         Campaign_Artifact.abi,
         owner
       );
-
       let result = await Campaign.remainBalance();
       console.log("campaign initial balance:" + result);
       expect(result).to.equal(100000);
-
       // await Campaign.setServiceCharge(1);
-
     });
-
   });
 
 
@@ -146,14 +139,10 @@ describe("Ad3 contract", function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
       await ad3Hub.setPaymentToken(token.address);
-
       await token.approve(ad3Hub.address, 100000);
-
       let kols = await getKolsFixtrue();
       await ad3Hub.createCampaign(kols, 100000, 10);
-
       let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
-      console.log("campaignAddress:" + campaignAddress);
 
       let Campaign = new ethers.Contract(
         campaignAddress,
@@ -163,12 +152,14 @@ describe("Ad3 contract", function () {
       let resultBeforePay = await Campaign.remainBalance();
       console.log("resultBeforePay:" + resultBeforePay);
 
+      //PayFixFee and check campaign's balance
       let kolAddress = await getKolsAddress();
+      //first kol pay
       await ad3Hub.payfixFee(kolAddress, owner.address, 1);
       let resultAfterFirstPay = await Campaign.remainBalance();
       console.log("resultAfterFirstPay:" + resultAfterFirstPay);
       expect(resultAfterFirstPay).to.equal(100000 - 100);
-
+      //second kol pay
       await ad3Hub.payfixFee(kolAddress, owner.address, 1);
       let resultAfterSecondPay = await Campaign.remainBalance();
       console.log("resultAfterSecondPay:" + resultAfterSecondPay);
@@ -177,18 +168,15 @@ describe("Ad3 contract", function () {
     });
 
 
-    it("pushPay", async function () {
+    it("pushPay withdraw", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
       await ad3Hub.setPaymentToken(token.address);
-
       await token.approve(ad3Hub.address, 100000);
-
       let kols = await getKolsFixtrue();
       await ad3Hub.createCampaign(kols, 100000, 10);
 
       let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
-
       let Campaign = new ethers.Contract(
         campaignAddress,
         Campaign_Artifact.abi,
@@ -198,34 +186,32 @@ describe("Ad3 contract", function () {
       console.log("resultBeforePay:" + resultBeforePay);
 
       let kolAddress = await getKolsAddress();
-
       //first kol pay
       await ad3Hub.payfixFee(kolAddress, owner.address, 1);
-
       //second kol pay
       await ad3Hub.payfixFee(kolAddress, owner.address, 1);
 
-      let kolWithUsers = await getKolWithUsers();
-      //pay users' fee
-      await ad3Hub.pushPay(kolWithUsers, owner.address, 1);
 
+      //UserPay and check campaign's balance
+      let kolWithUsers = await getKolWithUsers();
+      await ad3Hub.pushPay(kolWithUsers, owner.address, 1);
       let resultAfterUserPay = await Campaign.remainBalance();
       console.log("resultAfterUserPay:" + resultAfterUserPay);
       expect(resultAfterUserPay).to.equal(100000 - 200 - 40);
 
-      let createrBalance = await token.balanceOf(owner.address);
-      console.log("createrBalance:" + createrBalance);
-      //withdraw to campaign's creater
+      //Withdraw and check campaign's balance
+      let creatorBalance = await token.balanceOf(owner.address);
+      console.log("creatorBalance:" + creatorBalance);
       await ad3Hub.withdraw(owner.address, 1);
       let remainBalanceAfterwithdraw = await Campaign.remainBalance();
       console.log("remainBalanceAfterwithdraw:" + remainBalanceAfterwithdraw);
       expect(remainBalanceAfterwithdraw).to.equal(0);
 
-      let createrWithdraw = await token.balanceOf(owner.address);
-      console.log("createrWithdraw:" + createrWithdraw);
-      expect(createrWithdraw).to.equal(BigInt(createrBalance) + BigInt(resultAfterUserPay));
-      expect(createrWithdraw).to.equal(999999760);
-
+      //Check creator's balance after Withdraw
+      let creatorWithdraw = await token.balanceOf(owner.address);
+      console.log("creatorWithdraw:" + creatorWithdraw);
+      expect(creatorWithdraw).to.equal(BigInt(creatorBalance) + BigInt(resultAfterUserPay));
+      expect(creatorWithdraw).to.equal(999999760);
     });
   });
 });
