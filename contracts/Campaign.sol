@@ -20,7 +20,6 @@ contract Campaign is Ownable {
     address private _ad3hub;
     uint256 private _serviceCharge = 5;
     uint private _userFee;
-    uint private _paymentStage = 0;
     address private _paymentToken;
 
     modifier onlyAd3Hub() {
@@ -72,8 +71,6 @@ contract Campaign is Ownable {
                 IERC20(_paymentToken).transfer(kol._address, kol.fixedFee / 2)
             );
         }
-
-        _paymentStage++;
         return true;
     }
 
