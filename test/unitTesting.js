@@ -82,7 +82,7 @@ describe("Ad3 contract", function () {
       expect(await ad3Hub.owner()).to.equal(owner.address);
     });
 
-    it("Should balance of campaign equals init budget", async function () {
+    it("Should paymentAddess of ad3Hub equals setPaymentToken", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
 
@@ -130,6 +130,8 @@ describe("Ad3 contract", function () {
       expect(result).to.equal(100000);
       // await Campaign.setServiceCharge(1);
     });
+
+    //create two campaign
   });
 
 
@@ -168,7 +170,7 @@ describe("Ad3 contract", function () {
     });
 
 
-    it("pushPay withdraw", async function () {
+    it("pushPay and withdraw", async function () {
       const { ad3Hub, owner } = await loadFixture(deployAD3HubFixture);
       const { token } = await deployPaymentToken();
       await ad3Hub.setPaymentToken(token.address);
