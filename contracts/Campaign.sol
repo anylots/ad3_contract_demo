@@ -16,12 +16,12 @@ import "./AD3lib.sol";
  * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
  */
 contract Campaign is Ownable {
-    mapping(address => AD3lib.kol) public _kolStorages;
-    address public _ad3hub;
-    uint256 public _serviceCharge = 5;
-    uint public _userFee;
-    uint public _paymentStage = 0;
-    address public _paymentToken;
+    mapping(address => AD3lib.kol) private _kolStorages;
+    address private _ad3hub;
+    uint256 private _serviceCharge = 5;
+    uint private _userFee;
+    uint private _paymentStage = 0;
+    address private _paymentToken;
 
     modifier onlyAd3Hub() {
         require(
@@ -89,18 +89,19 @@ contract Campaign is Ownable {
             address[] memory users = kolWithUsers.users;
             require(users.length > 0, "AD3: users list is empty");
             AD3lib.kol memory kol = _kolStorages[kolWithUsers._address];
+
             // pay for kol
             require(
                 IERC20(_paymentToken).transfer(kol._address, (users.length * _userFee * kol.ratio) /100 )
             );
-
+            uint256 user_amount = _userFee * (100 - kol.ratio) / 100;
             for (uint64 index = 0; index < users.length; index++) {
                 address userAddress = users[index];
                 require(userAddress != address(0), "user_address is zero address");
 
                 // pay for user
                 require(
-                    IERC20(_paymentToken).transfer(userAddress, _userFee)
+                    IERC20(_paymentToken).transfer(userAddress, user_amount)
                 );
             }
         }
@@ -110,7 +111,7 @@ contract Campaign is Ownable {
     function withdraw(address advertiser) public onlyOwner returns (bool) {
         uint256 balance = IERC20(_paymentToken).balanceOf(address(this));
 
-        require(IERC20(_paymentToken).transferFrom(address(this), advertiser, balance));
+        require(IERC20(_paymentToken).transfer(advertiser, balance));
 
         return true;
     }

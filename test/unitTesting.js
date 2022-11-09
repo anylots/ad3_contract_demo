@@ -50,6 +50,23 @@ describe("Ad3 contract", function () {
     return kols;
   }
 
+  //kols for deployment
+  async function getKolWithUsers() {
+    const [owner, addr1, addr2, addr3, addr4, addr5, addr6, addr7] = await ethers.getSigners();
+    let kolWithUsers = [
+      {
+        _address: addr1.getAddress(),
+        users: [addr3.getAddress(), addr4.getAddress()]
+      },
+      {
+        _address: addr2.getAddress(),
+        users: [addr5.getAddress(), addr6.getAddress()]
+
+      }
+    ];
+    return kolWithUsers;
+  }
+
   //kols for payfixFee
   async function getKolsAddress() {
     const [owner, addr1, addr2] = await ethers.getSigners();
@@ -74,7 +91,9 @@ describe("Ad3 contract", function () {
 
       await ad3Hub.setPaymentToken(token.address);
       let payment = await ad3Hub.getPaymentToken();
-      console.log(payment);
+      console.log("paymentAddess:" + payment);
+      expect(payment).to.equal(token.address);
+
     });
 
   });
@@ -111,9 +130,11 @@ describe("Ad3 contract", function () {
       );
 
       let result = await Campaign.remainBalance();
-      console.log(result);
-
+      console.log("campaign initial balance:" + result);
       expect(result).to.equal(100000);
+
+      // await Campaign.setServiceCharge(1);
+
     });
 
   });
@@ -129,11 +150,10 @@ describe("Ad3 contract", function () {
       await token.approve(ad3Hub.address, 100000);
 
       let kols = await getKolsFixtrue();
-      console.log("starting createCampaign");
       await ad3Hub.createCampaign(kols, 100000, 10);
 
       let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
-      console.log(campaignAddress);
+      console.log("campaignAddress:" + campaignAddress);
 
       let Campaign = new ethers.Contract(
         campaignAddress,
@@ -141,14 +161,19 @@ describe("Ad3 contract", function () {
         owner
       );
       let resultBeforePay = await Campaign.remainBalance();
-      console.log(resultBeforePay);
+      console.log("resultBeforePay:" + resultBeforePay);
 
       let kolAddress = await getKolsAddress();
       await ad3Hub.payfixFee(kolAddress, owner.address, 1);
-      let resultAfterPay = await Campaign.remainBalance();
-      console.log(resultAfterPay);
+      let resultAfterFirstPay = await Campaign.remainBalance();
+      console.log("resultAfterFirstPay:" + resultAfterFirstPay);
+      expect(resultAfterFirstPay).to.equal(100000 - 100);
 
-      expect(resultAfterPay).to.equal(100000 - 100);
+      await ad3Hub.payfixFee(kolAddress, owner.address, 1);
+      let resultAfterSecondPay = await Campaign.remainBalance();
+      console.log("resultAfterSecondPay:" + resultAfterSecondPay);
+      expect(resultAfterSecondPay).to.equal(100000 - 200);
+
     });
 
 
@@ -158,6 +183,49 @@ describe("Ad3 contract", function () {
       await ad3Hub.setPaymentToken(token.address);
 
       await token.approve(ad3Hub.address, 100000);
+
+      let kols = await getKolsFixtrue();
+      await ad3Hub.createCampaign(kols, 100000, 10);
+
+      let campaignAddress = await ad3Hub.getCampaignAddress(owner.address, 1);
+
+      let Campaign = new ethers.Contract(
+        campaignAddress,
+        Campaign_Artifact.abi,
+        owner
+      );
+      let resultBeforePay = await Campaign.remainBalance();
+      console.log("resultBeforePay:" + resultBeforePay);
+
+      let kolAddress = await getKolsAddress();
+
+      //first kol pay
+      await ad3Hub.payfixFee(kolAddress, owner.address, 1);
+
+      //second kol pay
+      await ad3Hub.payfixFee(kolAddress, owner.address, 1);
+
+      let kolWithUsers = await getKolWithUsers();
+      //pay users' fee
+      await ad3Hub.pushPay(kolWithUsers, owner.address, 1);
+
+      let resultAfterUserPay = await Campaign.remainBalance();
+      console.log("resultAfterUserPay:" + resultAfterUserPay);
+      expect(resultAfterUserPay).to.equal(100000 - 200 - 40);
+
+      let createrBalance = await token.balanceOf(owner.address);
+      console.log("createrBalance:" + createrBalance);
+      //withdraw to campaign's creater
+      await ad3Hub.withdraw(owner.address, 1);
+      let remainBalanceAfterwithdraw = await Campaign.remainBalance();
+      console.log("remainBalanceAfterwithdraw:" + remainBalanceAfterwithdraw);
+      expect(remainBalanceAfterwithdraw).to.equal(0);
+
+      let createrWithdraw = await token.balanceOf(owner.address);
+      console.log("createrWithdraw:" + createrWithdraw);
+      expect(createrWithdraw).to.equal(BigInt(createrBalance) + BigInt(resultAfterUserPay));
+      expect(createrWithdraw).to.equal(999999760);
+
     });
   });
 });

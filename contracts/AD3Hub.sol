@@ -21,16 +21,13 @@ contract AD3Hub is Ownable {
 
     event PayContentFee(address indexed advertiser);
 
-    address public _paymentToken;
+    address private _paymentToken;
 
     // Mapping from Advertiser address to campaign address
-    mapping(address => mapping(uint64 => address)) internal campaigns;
+    mapping(address => mapping(uint64 => address)) private campaigns;
 
-    mapping(address => uint64) internal campaignIds;
+    mapping(address => uint64) private campaignIds;
 
-
-    // Mapping from Advertiser address to historyCampaign address
-    mapping(address => address) internal historyCampaigns;
 
     /**
      * 
@@ -123,9 +120,6 @@ contract AD3Hub is Ownable {
         require(pushPaySuccess, "AD3: pushPay failured");
         emit Pushpay(advertiser);
 
-        bool withdrawSuccess = Campaign(campaigns[advertiser][campaignId]).withdraw(advertiser);
-        require(withdrawSuccess, "AD3: withdraw failured");
-        emit Withdraw(advertiser);
     }
 
     /**
@@ -145,11 +139,6 @@ contract AD3Hub is Ownable {
         require(withdrawSuccess, "AD3: withdraw failured");
         emit Withdraw(advertiser);
 
-        historyCampaigns[advertiser] = campaigns[advertiser][campaignId];
-        delete campaigns[advertiser][campaignId];
-
-
-        emit Withdraw(advertiser);
     }
 
     function setPaymentToken(address token) external onlyOwner{
