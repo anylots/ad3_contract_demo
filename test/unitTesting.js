@@ -196,7 +196,7 @@ describe("Ad3 contract", function () {
 
       //UserPay and check campaign's balance
       let kolWithUsers = await getKolWithUsers();
-      await ad3Hub.pushPay(kolWithUsers, owner.address, 1);
+      await ad3Hub.pushPay(owner.address, 1, kolWithUsers);
       let resultAfterUserPay = await Campaign.remainBalance();
       console.log("resultAfterUserPay:" + resultAfterUserPay);
       expect(resultAfterUserPay).to.equal(100000 - 200 - 40);

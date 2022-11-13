@@ -86,9 +86,9 @@ async function pushPay() {
   // console.log(result);
 
   let info = await customHttpProvider.getTransactionReceipt(result.hash);
-  console.log("gas used:"+info.gasUsed);
+  console.log("gas used:" + info.gasUsed);
   let fee = ethers.utils.formatEther(10 * 10 ** 9) * info.gasUsed;
-  console.log("users size:"+users2.length);
+  console.log("users size:" + users2.length);
   console.log("gas fee:" + fee);
 
   console.log("pushPay complated");

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./AD3lib.sol";
+import {IERC20} from "./interfaces/IERC20.sol";
+import {SafeTransferLib} from "./libs/SafeTransferLib.sol";
+import "./libs/AD3lib.sol";
 
 
 /**
@@ -16,6 +18,8 @@ import "./AD3lib.sol";
  * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
  */
 contract Campaign is Ownable {
+    using SafeTransferLib for IERC20;
+
     mapping(address => AD3lib.kol) private _kolStorages;
     address private _ad3hub;
     uint256 private _serviceCharge = 5;
@@ -67,14 +71,12 @@ contract Campaign is Ownable {
             
             kol._paymentStage++;
             //pay for kol
-            require(
-                IERC20(_paymentToken).transfer(kol._address, kol.fixedFee / 2)
-            );
+            IERC20(_paymentToken).safeTransfer(kol._address, kol.fixedFee / 2);
         }
         return true;
     }
 
-    function pushPay(AD3lib.kolWithUsers[] memory kols) public onlyOwner returns (bool) {
+    function pushPay(AD3lib.kolWithUsers[] memory kols) public returns (bool) {
         require(kols.length > 0,"AD3: kols of pay is empty");
 
         uint256 balance = IERC20(_paymentToken).balanceOf(address(this));
@@ -88,18 +90,14 @@ contract Campaign is Ownable {
             AD3lib.kol memory kol = _kolStorages[kolWithUsers._address];
 
             // pay for kol
-            require(
-                IERC20(_paymentToken).transfer(kol._address, (users.length * _userFee * kol.ratio) /100 )
-            );
+            IERC20(_paymentToken).safeTransfer(kol._address, (users.length * _userFee * kol.ratio) /100 );
             uint256 user_amount = _userFee * (100 - kol.ratio) / 100;
             for (uint64 index = 0; index < users.length; index++) {
                 address userAddress = users[index];
                 require(userAddress != address(0), "user_address is zero address");
 
                 // pay for user
-                require(
-                    IERC20(_paymentToken).transfer(userAddress, user_amount)
-                );
+                IERC20(_paymentToken).safeTransfer(userAddress, user_amount);
             }
         }
         return true;

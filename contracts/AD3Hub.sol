@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Campaign.sol";
-import "./AD3lib.sol";
 
 
 contract AD3Hub is Ownable {
+    using SafeTransferLib for IERC20;
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -45,7 +45,7 @@ contract AD3Hub is Ownable {
         Campaign xcampaign = new Campaign(kols, userFee, _paymentToken);
 
         //init amount
-        IERC20(_paymentToken).transferFrom(
+        IERC20(_paymentToken).safeTransferFrom(
             msg.sender,
             address(xcampaign),
             totalBudget
@@ -59,6 +59,21 @@ contract AD3Hub is Ownable {
         return address(xcampaign);
     }
 
+
+    //The byte codes of EIP-1167 standard are as follows:
+    //3d602d80600a3d3981f3_363d3d37_3d3d3d363d73_bebebebebebebebebebebebebebebebebebebebe_5a_f4_3d82803e_903d91602b57fd5bf3
+    //notes:
+    //3d602d80600a3d3981f3 Copying runtime code into memory
+    //---------------proxy contract----------------
+    //363d3d37 Get the calldata
+    //3d3d3d363d73 prepare input and output parmeter
+    //bebebebebebebebebebebebebebebebebebebebe address of impl
+    //5a gas
+    //f4 Delegating the call
+    //3d82803e Get the result of an external call
+    //903d91602b57fd5bf3 return or revert
+    //---------------proxy contract----------------
+
     /**
      * @dev Add campaign address to campaign mapping.
      * @param budget The address of the underlying nft used as collateral
@@ -66,6 +81,7 @@ contract AD3Hub is Ownable {
     function createCampaignLowGas(address[] memory kols, uint256 budget) external returns (address instance) {
         require(kols.length > 0,"kols is empty");
 
+        /// @solidity memory-safe-assembly
         //create campaign
         assembly{
             let proxy :=mload(0x40)
@@ -80,7 +96,7 @@ contract AD3Hub is Ownable {
         require(success == true,"createCampaign init fail");
 
         //init amount
-        IERC20(_paymentToken).transferFrom(
+        IERC20(_paymentToken).safeTransferFrom(
             msg.sender,
             address(instance),
             budget
@@ -112,7 +128,7 @@ contract AD3Hub is Ownable {
      * - E.g. User deposits 100 USDC and gets in return 100 bUSDC
      * @param kols kols with his users list
      **/
-    function pushPay(AD3lib.kolWithUsers[] memory kols, address advertiser, uint64 campaignId) external onlyOwner{
+    function pushPay(address advertiser, uint64 campaignId, AD3lib.kolWithUsers[] calldata kols) external{
         uint256 balance = IERC20(_paymentToken).balanceOf(campaigns[advertiser][campaignId]);
         require(balance > 0, 'AD3: balance <= 0');
 
